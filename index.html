@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<title>Capítulo Primax Charcas 377</title>
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700&family=Barlow:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<div id="auth" class="box" hidden>
+  <h1>Capítulo Primax Charcas 377</h1>
+  <p>Acceso solo para miembros de la Orden DeMolay.</p>
+  <form id="form">
+    <div id="extra" hidden>
+      <label for="nombre">Nombre completo</label><input id="nombre" autocomplete="name">
+      <label for="codigo">Código de invitación</label><input id="codigo" autocomplete="off">
+    </div>
+    <label for="email">Correo</label><input id="email" type="email" autocomplete="email" required>
+    <label for="pass">Contraseña</label><input id="pass" type="password" minlength="8" autocomplete="current-password" required>
+    <p id="msg" role="alert"></p>
+    <button class="btn" id="go">Entrar</button>
+    <button class="link" id="toggle" type="button">Crear cuenta con código de invitación</button>
+  </form>
+</div>
+
+<div id="pend" class="box" hidden>
+  <h1>Cuenta pendiente</h1>
+  <p>Tu cuenta espera la aprobación de un administrador del capítulo. Vuelve a entrar cuando te avisen.</p>
+  <button class="btn" id="out1">Salir</button>
+</div>
+
+<div id="app" hidden>
+  <header><div><b>Primax Charcas 377</b><br><small id="me"></small></div><button class="btn alt" id="out2">Salir</button></header>
+  <main>
+    <section><h2>Noticias</h2>
+      <div class="slide" id="slide"><h3 id="st"></h3><p id="ss"></p><button class="btn" id="sb" hidden>Leer completa</button></div>
+      <div class="dots" id="dots"></div></section>
+    <section><h2>Calendario departamental</h2><div id="evs"></div></section>
+  </main>
+</div>
+<dialog id="dlg"><div id="dimg"></div><h3 id="dt"></h3><p id="db"></p><button class="btn" id="dx">Cerrar</button></dialog>
+<script type="module" src="app.js"></script>
+</body>
+</html>
