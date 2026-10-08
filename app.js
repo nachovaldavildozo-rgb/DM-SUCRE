@@ -1,5 +1,6 @@
 import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm";
 import { SUPABASE_URL, SUPABASE_ANON_KEY } from "./config.js";
+import { LOUIS_FIG, LOUIS_BG, LOUIS_AV } from "./louis-img.js";
 
 const sb = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 const $ = (id) => document.getElementById(id);
@@ -25,6 +26,7 @@ const PUESTOS = [...new Set([
   "Gran Comendador Chevalier", "Gran Comendador Escudero", "Gran Comendador del Sur", "Gran Comendador del Occidente", "Gran Secretario", "Gran Tesorero", "Gran Capellán", "Gran Mariscal",
   "Decano", "Vice-Decano", "Secretario", "Sargento de Armas", "Maestre Consejero Departamental", "Presidente del Consejo Consultivo",
 ])];
+let pendientes = 0;
 let me, timer, news = [], idx = 0, registro = false;
 
 const show = (id) => ["auth", "pend", "app"].forEach((x) => ($(x).hidden = x !== id));
@@ -81,6 +83,7 @@ async function boot() {
   me = p;
   $("mav").replaceChildren(avatar(me));
   $("mt").textContent = lbl(me);
+  if (me.es_admin) { const { count } = await sb.from("profiles").select("id", { count: "exact", head: true }).eq("aprobado", false); pendientes = count || 0; }
   show("app");
   initChat();
   go("inicio");
@@ -115,7 +118,7 @@ $("me").onclick = () => go("perfil", me.id);
 function go(view, arg) {
   clearInterval(timer);
   const nav = $("nav"); nav.replaceChildren();
-  const items = [["inicio", "Inicio"], ["hermanos", "Hermanos"], ["bitacora", "Bitácora"], ["consejo", "Consejo Consultivo"], ...(me.es_admin ? [["admin", "Administración"]] : [])];
+  const items = [["inicio", "Inicio"], ["hermanos", "Hermanos"], ["bitacora", "Bitácora"], ["consejo", "Consejo Consultivo"], ["louis", "Sir Louis"], ...(me.es_admin ? [["admin", "Administración" + (pendientes ? ` (${pendientes})` : "")]] : [])];
   items.forEach(([v, t]) => nav.append(h("button", { onclick: () => go(v), ...(v === view ? { "aria-current": "true" } : {}) }, t)));
   const main = $("main"); main.replaceChildren();
   window.scrollTo(0, 0);
@@ -123,6 +126,7 @@ function go(view, arg) {
   else if (view === "hermanos") viewHermanos(main);
   else if (view === "bitacora") viewBitacora(main);
   else if (view === "consejo") viewConsejo(main);
+  else if (view === "louis") viewLouis(main);
   else if (view === "perfil") viewPerfil(main, arg);
   else if (view === "admin") viewAdmin(main);
 }
@@ -224,17 +228,18 @@ async function viewPerfil(main, id) {
 async function viewAdmin(main) {
   const miembros = h("div"), codigos = h("div"), hojaBox = h("div");
   main.append(h("section", {}, h("h2", {}, "Miembros"), miembros), h("section", {}, h("h2", {}, "Hoja de vida"), hojaBox),
-    h("section", {}, h("h2", {}, "Códigos de invitación"), codigos), nuevaNoticia(), nuevoEvento(), nuevaBitacora(), nuevoDestacado(), pinGestion(), gestionContenido());
+    h("section", {}, h("h2", {}, "Códigos de invitación"), codigos), nuevaNoticia(), nuevoEvento(), nuevaBitacora(), nuevoDestacado(), pinGestion(), gestionConocimiento(), gestionContenido());
 
   const { data: ms } = await sb.from("profiles").select("*").order("aprobado").order("created_at", { ascending: false });
   (ms ?? []).forEach((p) => {
-    const g = sel(GR.map((t, i) => [i, t]), p.grado), t = h("input", { value: p.titulo }), c = cuerposSel(p.cuerpo), st = h("p");
+    const g = sel(GR.map((t, i) => [i, t]), p.grado), t = h("input", { value: p.titulo }), c = cuerposSel(p.cuerpo), st = h("p"), ad = h("input", { type: "checkbox", style: "width:auto" });
+    ad.checked = !!p.es_admin; ad.disabled = p.id === me.id;
     const guardar = (aprobar) => async () => {
-      const { error } = await sb.from("profiles").update({ grado: +g.value, titulo: t.value.trim() || "Iniciático", cuerpo: c.value || null, aprobado: aprobar ? true : p.aprobado }).eq("id", p.id);
+      const { error } = await sb.from("profiles").update({ grado: +g.value, titulo: t.value.trim() || "Iniciático", cuerpo: c.value || null, es_admin: ad.checked, aprobado: aprobar ? true : p.aprobado }).eq("id", p.id);
       msg(st, error ? "Error al guardar." : "Guardado.", !!error); if (!error && aprobar) viewAdminRefresh();
     };
     miembros.append(h("div", { class: "card static" }, h("b", {}, p.nombre + (p.aprobado ? "" : " (pendiente)")),
-      h("div", { class: "row" }, field("Grado", g), field("Título", t), field("Cuerpo", c)),
+      h("div", { class: "row" }, field("Grado", g), field("Título", t), field("Cuerpo", c)), h("label", {}, ad, " Administrador de la página"),
       h("button", { class: "btn", onclick: guardar(!p.aprobado) }, p.aprobado ? "Guardar" : "Aprobar"),
       p.id !== me.id ? h("button", { class: "link", onclick: async () => { if (confirm("¿Quitar a " + p.nombre + "?")) { await sb.from("profiles").delete().eq("id", p.id); viewAdminRefresh(); } } }, "Quitar") : null, st));
   });
@@ -486,6 +491,72 @@ function gestionContenido() {
     cargar();
   });
   return root;
+}
+
+/* ---------- etapa 5: Sir Louis ---------- */
+const SALUDO = "¡Grandioso sea el día en que vuestros pasos honran este recinto! 👑✨\nOs saludo con la más profunda reverencia. Soy Sir Louis, vuestro leal e infatigable custodio virtual. Ni el paso de los siglos ni las más fieras batallas mellarán mi afán de serviros con honor, lealtad y presteza.\nManifestad vuestro deseo, ¡y marcharemos de inmediato a la victoria!";
+const SUGERENCIAS = ["¿Qué es DeMolay?", "¿Cuáles son las siete virtudes?", "¿Qué cuerpos hay en el Campamento de Sucre?", "¿Qué significa ser Sir, Lord u Honorable?", "Cuéntame la historia de DeMolay en Bolivia"];
+
+function viewLouis(main) {
+  main.append(h("section", {}, h("h2", {}, "Sir Louis, vuestro custodio virtual"),
+    h("div", { class: "louiscard" }, h("img", { src: LOUIS_FIG, alt: "Sir Louis, un ave de fuego con armadura de caballero", width: 220 }),
+      h("div", {}, h("p", {}, "Pregúntale lo que quieras sobre la Orden. Te responde con paciencia y siempre termina con un resumen en palabras simples. Solo conoce lo que corresponde a tu grado."),
+        h("p", { class: "mute" }, "Por favor no le cuentes datos personales: tus preguntas se procesan en un servicio externo."),
+        h("button", { class: "btn", onclick: abrirLouis }, "Hablar con Sir Louis")))));
+}
+function abrirLouis() {
+  if ($("louis")) return;
+  const H = [];
+  let ocupado = false;
+  const lista = h("div", { id: "louism" }), chips = h("div", { id: "louischips" });
+  const q = h("input", { placeholder: "Manifestad vuestro deseo…", maxlength: 300, autocomplete: "off", "aria-label": "Mensaje para Sir Louis" }), enviar = h("button", { class: "btn" }, "Enviar");
+  const burbuja = (c, t) => { const d = h("div", { class: "b " + c }, t); lista.append(d); lista.scrollTop = lista.scrollHeight; return d; };
+  const cerrar = () => { ov.remove(); document.body.style.overflow = ""; };
+  async function preguntar(t) {
+    if (ocupado) return;
+    ocupado = true; enviar.disabled = true;
+    burbuja("u", t);
+    const w = burbuja("l", "Sir Louis consulta sus pergaminos…");
+    try {
+      const { data, error } = await sb.functions.invoke("sir-louis", { body: { pregunta: t, historial: H.slice(-6) } });
+      if (error || !data?.texto) throw error ?? new Error("sin respuesta");
+      w.textContent = data.texto;
+      H.push({ rol: "usuario", texto: t }, { rol: "louis", texto: data.texto });
+    } catch (e) {
+      w.textContent = "Perdonad, noble amigo: Sir Louis no pudo responder ahora. Intentad de nuevo en un momento.";
+    } finally {
+      ocupado = false; enviar.disabled = false; lista.scrollTop = lista.scrollHeight; q.focus();
+    }
+  }
+  SUGERENCIAS.forEach((s2) => chips.append(h("button", { type: "button", onclick: () => preguntar(s2) }, s2)));
+  const ov = h("div", { id: "louis", role: "dialog", "aria-label": "Chat con Sir Louis" },
+    h("div", { class: "louish" }, h("span", { class: "av", style: `background-image:url("${LOUIS_AV}")` }), h("div", {}, h("b", {}, "Sir Louis"), h("br"), h("small", {}, "Custodio virtual")), h("button", { class: "btn alt", onclick: cerrar }, "Volver")),
+    lista, chips,
+    h("form", { class: "louisf", onsubmit: (e) => { e.preventDefault(); const t = q.value.trim(); if (t) { q.value = ""; preguntar(t); } } }, q, enviar));
+  ov.style.backgroundImage = `linear-gradient(rgba(10,12,20,.82),rgba(10,12,20,.9)),url("${LOUIS_BG}")`;
+  document.body.append(ov);
+  document.body.style.overflow = "hidden";
+  burbuja("l", SALUDO);
+  q.focus();
+}
+
+function gestionConocimiento() {
+  const t = h("input"), c = h("textarea", { rows: 6 }), g = sel(GR.slice(0, 3).map((x, i) => [i, x])), st = h("p"), lista = h("div");
+  const cargar = async () => {
+    const { data } = await sb.from("conocimiento").select("id,titulo,min_grado").order("id");
+    lista.replaceChildren(...(data?.length ? data.map((r) => h("div", { class: "ev" }, h("span", { style: "flex:1" }, `${r.titulo} · desde ${GR[r.min_grado] ?? r.min_grado}`),
+      h("button", { class: "link", style: "margin:0", onclick: async () => { if (confirm("¿Quitar esto de Sir Louis?")) { await sb.from("conocimiento").delete().eq("id", r.id); cargar(); } } }, "Quitar"))) : [h("p", { class: "mute" }, "Sir Louis aún no sabe nada.")]));
+  };
+  cargar();
+  return h("section", {}, h("h2", {}, "Lo que sabe Sir Louis"),
+    h("p", { class: "mute" }, "Cada tema lo ven solo los hermanos del grado indicado en adelante. No pegues rituales ni textos reservados. Para corregir un tema, quítalo y vuelve a agregarlo."),
+    field("Tema", t), field("Contenido", c), field("¿Desde qué grado puede saberlo Sir Louis?", g),
+    h("button", { class: "btn", onclick: async () => {
+      if (!t.value.trim() || !c.value.trim()) return msg(st, "Escribe el tema y el contenido.", true);
+      const { error } = await sb.from("conocimiento").insert({ titulo: t.value.trim(), contenido: c.value.trim(), min_grado: +g.value });
+      msg(st, error ? "Error al guardar." : "Sir Louis aprendió algo nuevo.", !!error);
+      if (!error) { t.value = c.value = ""; cargar(); }
+    } }, "Agregar"), st, lista);
 }
 
 boot();

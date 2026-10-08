@@ -44,3 +44,10 @@ dialog img{width:100%;border-radius:6px;margin-bottom:.6rem}
 .msgs{flex:1;overflow:auto;padding:.8rem}.msgs .m{margin-bottom:.8rem;word-break:break-word}
 .who{background:none;border:0;padding:0;color:var(--red);font-weight:600;cursor:pointer;text-align:left}
 .chatf{display:flex;gap:.4rem;padding:.6rem;border-top:1px solid var(--line)}.chatf .btn{margin:0}
+.louiscard{display:flex;gap:1.4rem;align-items:center;flex-wrap:wrap;background:var(--card);border:1px solid var(--line);border-radius:8px;padding:1rem}.louiscard img{width:min(220px,100%);height:auto;border-radius:8px}.louiscard p{margin:0 0 .8rem;max-width:40ch}
+#louis{--ink:#eceae6;--mute:#b5bccb;--card:rgba(24,28,39,.92);--line:#3a4260;--red:#e0475c;--on:#10131b;color:var(--ink);position:fixed;inset:0;z-index:50;background:#10131b center/cover;display:flex;flex-direction:column}
+.louish{display:flex;align-items:center;gap:.8rem;padding:.7rem 1.2rem;border-bottom:1px solid var(--line)}.louish div{flex:1}.louish b{font:700 1.4rem "Barlow Condensed",sans-serif}.louish small{color:var(--mute)}
+#louism{flex:1;overflow:auto;padding:1rem 1.2rem;max-width:760px;width:100%;margin:0 auto}
+.b{max-width:88%;padding:.7rem .9rem;border-radius:10px;margin:.5rem 0;white-space:pre-wrap;word-break:break-word}.b.l{background:var(--card);border:1px solid var(--line)}.b.u{background:var(--red);color:var(--on);margin-left:auto}
+#louischips{display:flex;gap:.5rem;overflow-x:auto;padding:.4rem 1.2rem;max-width:760px;width:100%;margin:0 auto}#louischips button{flex:none;background:var(--card);border:1px solid var(--red);color:var(--red);border-radius:99px;padding:.35rem .9rem;cursor:pointer}
+.louisf{display:flex;gap:.5rem;padding:.7rem 1.2rem;max-width:760px;width:100%;margin:0 auto}.louisf .btn{margin:0}
