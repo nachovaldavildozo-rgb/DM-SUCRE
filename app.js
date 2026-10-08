@@ -82,6 +82,7 @@ async function boot() {
   $("mav").replaceChildren(avatar(me));
   $("mt").textContent = lbl(me);
   show("app");
+  initChat();
   go("inicio");
 }
 $("toggle").onclick = () => {
@@ -223,7 +224,7 @@ async function viewPerfil(main, id) {
 async function viewAdmin(main) {
   const miembros = h("div"), codigos = h("div"), hojaBox = h("div");
   main.append(h("section", {}, h("h2", {}, "Miembros"), miembros), h("section", {}, h("h2", {}, "Hoja de vida"), hojaBox),
-    h("section", {}, h("h2", {}, "Códigos de invitación"), codigos), nuevaNoticia(), nuevoEvento(), nuevaBitacora(), nuevoDestacado(), pinGestion());
+    h("section", {}, h("h2", {}, "Códigos de invitación"), codigos), nuevaNoticia(), nuevoEvento(), nuevaBitacora(), nuevoDestacado(), pinGestion(), gestionContenido());
 
   const { data: ms } = await sb.from("profiles").select("*").order("aprobado").order("created_at", { ascending: false });
   (ms ?? []).forEach((p) => {
@@ -409,6 +410,82 @@ function nuevoDestacado() {
       const { error } = await sb.from("destacados").insert({ perfil_id: quien.value, mes: mes.value + "-01", motivo: mot.value.trim() || null });
       msg(st, error ? "Error al guardar." : "Hermano destacado.", !!error); if (!error) mot.value = "";
     } }, "Destacar"), st);
+}
+
+/* ---------- etapa 4: chat de todos y gestión de contenido ---------- */
+const personas = new Map();
+async function precargar(ids) {
+  const faltan = [...new Set(ids)].filter((i) => !personas.has(i));
+  if (!faltan.length) return;
+  const { data } = await sb.from("profiles").select("id,nombre,titulo,foto_path").in("id", faltan);
+  (data ?? []).forEach((p) => personas.set(p.id, p));
+}
+function initChat() {
+  if ($("chatfab")) return;
+  let abierto = false, sinLeer = 0;
+  const vistos = new Set(), lista = h("div", { class: "msgs" }), input = h("input", { maxlength: 500, placeholder: "Escribe un mensaje", "aria-label": "Mensaje" });
+  const fab = h("button", { class: "btn", id: "chatfab" }, "💬 Chat");
+
+  async function pintar(m) {
+    if (vistos.has(m.id)) return;
+    vistos.add(m.id);
+    await precargar([m.perfil_id]);
+    const p = personas.get(m.perfil_id) ?? { nombre: "Hermano", titulo: "" };
+    const hora = new Date(m.created_at).toLocaleString("es-BO", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" });
+    const fila = h("div", { class: "m" }, h("button", { class: "who", onclick: () => { alternar(false); go("perfil", m.perfil_id); } }, lbl(p)), h("small", { class: "mute" }, " · " + hora),
+      me.es_admin || m.perfil_id === me.id ? h("button", { class: "link", style: "display:inline;margin:0 0 0 .6rem", onclick: async () => { if (confirm("¿Borrar este mensaje?")) { await sb.from("mensajes").delete().eq("id", m.id); fila.remove(); } } }, "Borrar") : null,
+      h("div", {}, m.texto));
+    lista.append(fila);
+    lista.scrollTop = lista.scrollHeight;
+  }
+  async function cargar() {
+    const { data } = await sb.from("mensajes").select("*").order("created_at", { ascending: false }).limit(80);
+    const ms = (data ?? []).reverse();
+    await precargar(ms.map((m) => m.perfil_id));
+    lista.replaceChildren(); vistos.clear();
+    for (const m of ms) await pintar(m);
+    if (!ms.length) lista.append(h("p", { class: "mute" }, "Aún no hay mensajes. ¡Escribe el primero!"));
+  }
+  function alternar(v) {
+    abierto = v; panel.hidden = !v;
+    if (v) { sinLeer = 0; fab.textContent = "💬 Chat"; cargar(); input.focus(); }
+  }
+  const panel = h("div", { class: "chat", hidden: true, role: "dialog", "aria-label": "Chat de todos" },
+    h("div", { class: "chath" }, h("b", {}, "Chat de todos"), h("button", { class: "link", style: "margin:0", onclick: () => alternar(false) }, "Cerrar")), lista,
+    h("form", { class: "chatf", onsubmit: async (e) => {
+      e.preventDefault();
+      const t = input.value.trim(); if (!t) return;
+      input.value = "";
+      const { data, error } = await sb.from("mensajes").insert({ texto: t }).select().single();
+      if (error) input.value = t; else { lista.querySelector("p")?.remove(); pintar(data); }
+    } }, input, h("button", { class: "btn" }, "Enviar")));
+  fab.onclick = () => alternar(!abierto);
+  document.body.append(fab, panel);
+  sb.channel("chat-todos").on("postgres_changes", { event: "INSERT", schema: "public", table: "mensajes" }, (pl) => {
+    if (abierto) { lista.querySelector("p")?.remove(); pintar(pl.new); }
+    else { sinLeer++; fab.textContent = `💬 Chat (${sinLeer})`; }
+  }).subscribe();
+}
+
+function gestionContenido() {
+  const root = h("section", {}, h("h2", {}, "Contenido publicado"), h("p", { class: "mute" }, "Aquí puedes quitar lo que ya no sirva, por ejemplo las pruebas."));
+  const tablas = [
+    ["Noticias", "noticias", "id,titulo", (r) => r.titulo],
+    ["Actividades", "eventos", "id,titulo,fecha", (r) => `${r.fecha} · ${r.titulo}`],
+    ["Bitácora", "bitacora", "id,gestion,actividad", (r) => `${r.gestion} · ${r.actividad}`],
+    ["Destacados", "destacados", "id,mes,profiles(nombre)", (r) => `${r.mes.slice(0, 7)} · ${r.profiles?.nombre ?? "—"}`],
+  ];
+  tablas.forEach(([titulo, tabla, cols, texto]) => {
+    const caja = h("div");
+    root.append(h("h3", { style: "margin-top:1.2rem" }, titulo), caja);
+    const cargar = async () => {
+      const { data } = await sb.from(tabla).select(cols).order("id", { ascending: false }).limit(20);
+      caja.replaceChildren(...(data?.length ? data.map((r) => h("div", { class: "ev" }, h("span", { style: "flex:1" }, texto(r)),
+        h("button", { class: "link", style: "margin:0", onclick: async () => { if (confirm("¿Quitar esto?")) { await sb.from(tabla).delete().eq("id", r.id); cargar(); } } }, "Quitar"))) : [h("p", { class: "mute" }, "Nada por ahora.")]));
+    };
+    cargar();
+  });
+  return root;
 }
 
 boot();
