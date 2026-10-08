@@ -501,7 +501,7 @@ function viewLouis(main) {
   main.append(h("section", {}, h("h2", {}, "Sir Louis, vuestro custodio virtual"),
     h("div", { class: "louiscard" }, h("img", { src: LOUIS_FIG, alt: "Sir Louis, un ave de fuego con armadura de caballero", width: 220 }),
       h("div", {}, h("p", {}, "Pregúntale lo que quieras sobre la Orden. Te responde con paciencia y siempre termina con un resumen en palabras simples. Solo conoce lo que corresponde a tu grado."),
-        h("p", { class: "mute" }, "Por favor no le cuentes datos personales: tus preguntas se procesan en un servicio externo."),
+        
         h("button", { class: "btn", onclick: abrirLouis }, "Hablar con Sir Louis")))));
 }
 function abrirLouis() {
