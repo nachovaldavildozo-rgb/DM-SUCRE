@@ -3,7 +3,7 @@ import { SUPABASE_URL, SUPABASE_ANON_KEY } from "./config.js";
 
 const sb = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 const $ = (id) => document.getElementById(id);
-const GR = ["Iniciático", "DeMolay", "Sir (Priorato de Caballería)"];
+const GR = ["Iniciático", "DeMolay", "Sir (Priorato de Caballería)", "Tío (Consejo Consultivo)"];
 const CUERPOS = [
   "Capítulo Primax Charcas 377 (N°75004)",
   "Capítulo Antonio José de Sucre (N°75019)",
@@ -11,12 +11,20 @@ const CUERPOS = [
   "Priorato Caballeros Custodios de la Independencia (N°75802)",
   "Corte Chevalier Robert de Chrown",
   "Legión de Honor",
+  "Consejo Consultivo",
 ];
 const TIPOS = {
   iniciatico: "Iniciático", demolay: "Grado DeMolay", maestre_consejero: "Maestre Consejero",
-  past_maestre_consejero: "Past Maestre Consejero", sir: "Sir (Priorato de Caballería)",
-  lord_chevalier: "Lord Chevalier", honorable: "Honorable (Legión de Honor)", cargo: "Cargo",
+  past_maestre_consejero: "Past Maestre Consejero", filantropia: "Filantropía", sir: "Sir (Priorato de Caballería)",
+  lord_chevalier: "Lord Chevalier", honorable: "Honorable (Legión de Honor)", cargo: "Puesto en la gestión",
 };
+const PUESTOS = [...new Set([
+  "Maestre Consejero", "Primer Consejero", "Segundo Consejero", "Escriba", "Orador", "Tesorero", "Primer Diácono", "Segundo Diácono",
+  "Primer Mayordomo", "Segundo Mayordomo", "Mariscal", "Capellán", "Portabandera", "Hospitalario", "Preceptor", "Organista",
+  "Ilustre Caballero Comendador", "Comendador Escudero", "Comendador Paje", "Protocolista", "Prior", "Sacristán", "Centinela",
+  "Gran Comendador Chevalier", "Gran Comendador Escudero", "Gran Comendador del Sur", "Gran Comendador del Occidente", "Gran Secretario", "Gran Tesorero", "Gran Capellán", "Gran Mariscal",
+  "Decano", "Vice-Decano", "Secretario", "Sargento de Armas", "Maestre Consejero Departamental", "Presidente del Consejo Consultivo",
+])];
 let me, timer, news = [], idx = 0, registro = false;
 
 const show = (id) => ["auth", "pend", "app"].forEach((x) => ($(x).hidden = x !== id));
@@ -106,12 +114,14 @@ $("me").onclick = () => go("perfil", me.id);
 function go(view, arg) {
   clearInterval(timer);
   const nav = $("nav"); nav.replaceChildren();
-  const items = [["inicio", "Inicio"], ["hermanos", "Hermanos"], ...(me.es_admin ? [["admin", "Administración"]] : [])];
+  const items = [["inicio", "Inicio"], ["hermanos", "Hermanos"], ["bitacora", "Bitácora"], ["consejo", "Consejo Consultivo"], ...(me.es_admin ? [["admin", "Administración"]] : [])];
   items.forEach(([v, t]) => nav.append(h("button", { onclick: () => go(v), ...(v === view ? { "aria-current": "true" } : {}) }, t)));
   const main = $("main"); main.replaceChildren();
   window.scrollTo(0, 0);
   if (view === "inicio") viewInicio(main);
   else if (view === "hermanos") viewHermanos(main);
+  else if (view === "bitacora") viewBitacora(main);
+  else if (view === "consejo") viewConsejo(main);
   else if (view === "perfil") viewPerfil(main, arg);
   else if (view === "admin") viewAdmin(main);
 }
@@ -126,7 +136,9 @@ function viewInicio(main) {
   const st = h("h3"), ss = h("p"), sbtn = h("button", { class: "btn" }, "Leer completa");
   const slideEl = h("div", { class: "slide" }, st, ss, sbtn), dots = h("div", { class: "dots" });
   const evs = h("div");
-  main.append(h("section", {}, h("h2", {}, "Noticias"), slideEl, dots), h("section", {}, h("h2", {}, "Calendario departamental"), evs));
+  main.append(h("section", {}, h("h2", {}, "Noticias"), slideEl, dots));
+  destacadosSection(main);
+  main.append(h("section", {}, h("h2", {}, "Calendario departamental"), evs));
 
   async function slide(i) {
     if (!news.length) { st.textContent = "Sin noticias por ahora"; ss.textContent = ""; sbtn.hidden = true; dots.replaceChildren(); return; }
@@ -179,8 +191,12 @@ async function viewPerfil(main, id) {
   const esMio = p.id === me.id;
   main.append(h("div", { class: "prof" }, avatar(p, "big"), h("div", {}, h("h2", {}, lbl(p)), h("p", { class: "mute" }, GR[p.grado] + (p.cuerpo ? " · " + p.cuerpo : "")))));
   if (p.presentacion) main.append(h("p", {}, p.presentacion));
+  const dest = h("p", { class: "mute" }); main.append(dest);
+  Promise.all([sb.from("destacados").select("id", { count: "exact", head: true }).eq("perfil_id", id), sb.from("pines").select("gestion").eq("perfil_id", id)]).then(([{ count }, { data: pn }]) => {
+    const t = []; if (count) t.push(`Destacado ${count} ${count === 1 ? "vez" : "veces"}`); (pn ?? []).forEach((x) => t.push(`🏅 Pin de la gestión ${x.gestion}`)); dest.textContent = t.join(" · ");
+  });
   const tl = h("div", { class: "tl" });
-  (hitos ?? []).forEach((x) => tl.append(h("div", {}, h("b", {}, TIPOS[x.tipo] ?? x.tipo), h("span", {}, [x.fecha ? fecha(x.fecha) : "", x.detalle].filter(Boolean).join(" · ")),
+  (hitos ?? []).forEach((x) => tl.append(h("div", {}, h("b", {}, x.tipo === "cargo" && x.detalle ? x.detalle : (TIPOS[x.tipo] ?? x.tipo)), h("span", {}, [x.tipo === "cargo" ? "Puesto" : null, x.gestion, x.fecha ? fecha(x.fecha) : "", x.tipo === "cargo" ? "" : x.detalle].filter(Boolean).join(" · ")),
     me.es_admin ? h("button", { class: "link", onclick: async () => { await sb.from("hitos").delete().eq("id", x.id); go("perfil", id); } }, "Quitar") : null)));
   main.append(h("section", {}, h("h2", {}, "Hoja de vida DeMolay"), hitos?.length ? tl : h("p", { class: "mute" }, "Aún no hay títulos ni cargos registrados.")));
   if (!esMio) return;
@@ -207,7 +223,7 @@ async function viewPerfil(main, id) {
 async function viewAdmin(main) {
   const miembros = h("div"), codigos = h("div"), hojaBox = h("div");
   main.append(h("section", {}, h("h2", {}, "Miembros"), miembros), h("section", {}, h("h2", {}, "Hoja de vida"), hojaBox),
-    h("section", {}, h("h2", {}, "Códigos de invitación"), codigos), nuevaNoticia(), nuevoEvento());
+    h("section", {}, h("h2", {}, "Códigos de invitación"), codigos), nuevaNoticia(), nuevoEvento(), nuevaBitacora(), nuevoDestacado(), pinGestion());
 
   const { data: ms } = await sb.from("profiles").select("*").order("aprobado").order("created_at", { ascending: false });
   (ms ?? []).forEach((p) => {
@@ -223,10 +239,11 @@ async function viewAdmin(main) {
   });
 
   const quien = sel((ms ?? []).filter((p) => p.aprobado).map((p) => [p.id, lbl(p)])), tipo = sel(Object.entries(TIPOS)),
-    det = h("input", { placeholder: "Ej.: gestión 2025 / nombre del cargo" }), fe = h("input", { type: "date" }), st2 = h("p");
-  hojaBox.append(h("div", { class: "row" }, field("Hermano", quien), field("Título o cargo", tipo), field("Detalle", det), field("Fecha", fe)),
+    det = h("input", { list: "puestos", placeholder: "Puesto (elige o escribe) o filantropía" }), ges = h("input", { placeholder: "Ej.: 2026-I" }), fe = h("input", { type: "date" }), st2 = h("p");
+  hojaBox.append(h("div", { class: "row" }, field("Hermano", quien), field("Título o cargo", tipo), field("Puesto o detalle", det), field("Gestión", ges), field("Fecha", fe)),
+    h("datalist", { id: "puestos" }, ...PUESTOS.map((p) => h("option", { value: p }))),
     h("button", { class: "btn", onclick: async () => {
-      const { error } = await sb.from("hitos").insert({ perfil_id: quien.value, tipo: tipo.value, detalle: det.value.trim() || null, fecha: fe.value || null });
+      const { error } = await sb.from("hitos").insert({ perfil_id: quien.value, tipo: tipo.value, detalle: det.value.trim() || null, gestion: ges.value.trim() || null, fecha: fe.value || null });
       msg(st2, error ? "Error al guardar." : "Agregado a la hoja de vida.", !!error); if (!error) det.value = "";
     } }, "Agregar"), st2);
 
@@ -242,7 +259,7 @@ async function viewAdmin(main) {
 const viewAdminRefresh = () => go("admin");
 
 function nuevaNoticia() {
-  const t = h("input"), r = h("input"), c = h("textarea", { rows: 4 }), f = h("input", { type: "file", accept: "image/*" }), g = sel(GR.map((x, i) => [i, x])), st = h("p");
+  const t = h("input"), r = h("input"), c = h("textarea", { rows: 4 }), f = h("input", { type: "file", accept: "image/*" }), g = sel(GR.slice(0, 3).map((x, i) => [i, x])), st = h("p");
   return h("section", {}, h("h2", {}, "Nueva noticia"), field("Título", t), field("Resumen (lo que se ve al deslizar)", r), field("Texto completo", c), field("Foto de fondo (opcional)", f), field("¿Desde qué grado se ve?", g),
     h("button", { class: "btn", onclick: async () => {
       if (!t.value.trim()) return msg(st, "Escribe un título.", true);
@@ -258,7 +275,7 @@ function nuevaNoticia() {
     } }, "Publicar noticia"), st);
 }
 function nuevoEvento() {
-  const t = h("input"), d = h("input", { type: "date" }), l = h("input"), dep = h("input", { type: "checkbox" }), g = sel(GR.map((x, i) => [i, x])), st = h("p");
+  const t = h("input"), d = h("input", { type: "date" }), l = h("input"), dep = h("input", { type: "checkbox" }), g = sel(GR.slice(0, 3).map((x, i) => [i, x])), st = h("p");
   dep.style.width = "auto";
   return h("section", {}, h("h2", {}, "Nueva actividad"), field("Nombre", t), field("Fecha", d), field("Lugar o cuerpo organizador", l),
     h("label", {}, dep, " Es una actividad departamental (sale resaltada)"), field("¿Desde qué grado se ve?", g),
@@ -267,6 +284,131 @@ function nuevoEvento() {
       const { error } = await sb.from("eventos").insert({ titulo: t.value.trim(), fecha: d.value, lugar: l.value.trim() || null, departamental: dep.checked, min_grado: +g.value });
       msg(st, error ? "Error al guardar." : "Actividad agregada.", !!error); if (!error) { t.value = l.value = ""; }
     } }, "Agregar actividad"), st);
+}
+
+/* ---------- etapa 3: destacados, bitácora, consejo consultivo ---------- */
+const semestre = (d = new Date()) => `${d.getFullYear()}-${d.getMonth() < 6 ? "I" : "II"}`;
+const rangoSem = (g) => { const [y, n] = g.split("-"); return n === "I" ? [`${y}-01-01`, `${y}-06-30`] : [`${y}-07-01`, `${y}-12-31`]; };
+const mesActual = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-01`; };
+
+async function destacadosSection(main) {
+  const box = h("div", { class: "cards" }), rank = h("p", { class: "mute" }), pins = h("p", { class: "mute" });
+  main.append(h("section", {}, h("h2", {}, "Destacados del mes"), box, rank, pins));
+  const [{ data }, { data: pn }] = await Promise.all([
+    sb.from("destacados").select("perfil_id,mes,motivo,profiles(nombre,titulo,foto_path)"),
+    sb.from("pines").select("gestion,profiles(nombre)").order("gestion", { ascending: false }),
+  ]);
+  const rows = data ?? [], [d0, d1] = rangoSem(semestre()), cuenta = {};
+  rows.filter((r) => r.mes >= d0 && r.mes <= d1).forEach((r) => { cuenta[r.perfil_id] = (cuenta[r.perfil_id] || 0) + 1; });
+  const delMes = rows.filter((r) => r.mes === mesActual() && r.profiles);
+  if (!delMes.length) box.textContent = "Todavía no hay destacados este mes.";
+  delMes.forEach((r) => box.append(h("button", { class: "card", onclick: () => go("perfil", r.perfil_id) }, avatar(r.profiles),
+    h("span", {}, h("b", {}, lbl(r.profiles)), h("br"), h("small", {}, r.motivo ?? "")))));
+  const top = Object.entries(cuenta).sort((a, b) => b[1] - a[1]).slice(0, 3).map(([id, n]) => `${rows.find((r) => r.perfil_id === id)?.profiles?.nombre} (${n})`);
+  if (top.length) rank.textContent = `Más destacados de la gestión ${semestre()}: ` + top.join(", ");
+  if (pn?.length) pins.textContent = "🏅 Pines de gestión: " + pn.map((p) => `${p.profiles?.nombre} · ${p.gestion}`).join(" | ");
+}
+
+async function viewBitacora(main) {
+  const lista = h("div");
+  main.append(h("section", {}, h("h2", {}, "Bitácora"), lista));
+  const { data } = await sb.from("bitacora").select("*").order("fecha", { ascending: false, nullsFirst: false }).order("created_at", { ascending: false });
+  if (!data?.length) { lista.textContent = "Aún no hay actividades registradas."; return; }
+  data.forEach((b) => {
+    const ph = h("div", { class: "ph" });
+    if (b.imagen) signed("bitacora", b.imagen).then((u) => { if (u) ph.style.backgroundImage = `url("${u}")`; });
+    lista.append(h("article", { class: "bit" }, ph, h("div", { class: "in" }, h("h3", {}, `${b.gestion} · ${b.actividad}`), ...(b.testimonios ?? []).map((t) => h("blockquote", {}, t)))));
+  });
+}
+
+async function viewConsejo(main) {
+  const esTio = me.grado >= 3 || me.es_admin;
+  const tios = h("div", { class: "cards" }), mis = h("div"), st = h("p");
+  const asunto = h("input", { maxlength: 120 }), texto = h("textarea", { rows: 4, maxlength: 2000 });
+  main.append(h("section", {}, h("h2", {}, "Consejo Consultivo"), h("p", { class: "mute" }, "Pregunta o conversa con los tíos de cualquier tema. Tu mensaje es privado: solo lo ven los tíos del Consejo Consultivo."), tios),
+    h("section", {}, h("h2", {}, "Escribirles"), field("Asunto", asunto), field("Mensaje", texto),
+      h("button", { class: "btn", onclick: async () => {
+        if (!asunto.value.trim() || !texto.value.trim()) return msg(st, "Escribe el asunto y el mensaje.", true);
+        const { error } = await sb.from("consultas").insert({ asunto: asunto.value.trim(), mensaje: texto.value.trim() });
+        if (error) return msg(st, "No se pudo enviar. Intenta de nuevo.", true);
+        asunto.value = texto.value = ""; msg(st, "Mensaje enviado."); cargarMis();
+      } }, "Enviar"), st),
+    h("section", {}, h("h2", {}, "Mis mensajes"), mis));
+  sb.from("profiles").select("id,nombre,titulo,cuerpo,foto_path,grado").eq("aprobado", true).eq("grado", 3).order("nombre").then(({ data }) => {
+    if (!data?.length) { tios.textContent = "Aún no hay tíos registrados en la página."; return; }
+    data.forEach((p) => tios.append(h("button", { class: "card", onclick: () => go("perfil", p.id) }, avatar(p), h("span", {}, h("b", {}, lbl(p))))));
+  });
+  const caja = (c, extra) => h("div", { class: "card static consulta" }, h("b", {}, c.asunto), h("p", {}, c.mensaje),
+    c.respuesta ? h("div", { class: "resp" }, h("b", {}, "Respuesta"), h("p", {}, c.respuesta)) : h("p", { class: "mute" }, "Esperando respuesta."), extra);
+  async function cargarMis() {
+    const { data } = await sb.from("consultas").select("*").eq("de", me.id).order("creado", { ascending: false });
+    mis.replaceChildren(...(data?.length ? data.map((c) => caja(c)) : [h("p", { class: "mute" }, "Aún no has enviado mensajes.")]));
+  }
+  cargarMis();
+  if (!esTio) return;
+  const bandeja = h("div");
+  main.append(h("section", {}, h("h2", {}, "Bandeja de los tíos"), bandeja));
+  const { data: pend } = await sb.from("consultas").select("*").is("respuesta", null).order("creado");
+  if (!pend?.length) { bandeja.textContent = "No hay mensajes sin responder."; return; }
+  const { data: quienes } = await sb.from("profiles").select("id,nombre,titulo").in("id", [...new Set(pend.map((c) => c.de))]);
+  pend.forEach((c) => {
+    const q = (quienes ?? []).find((x) => x.id === c.de), r = h("textarea", { rows: 3, maxlength: 2000 }), s2 = h("p");
+    bandeja.append(h("div", { class: "card static consulta" }, h("small", {}, "De: " + (q ? lbl(q) : "—")), h("b", {}, c.asunto), h("p", {}, c.mensaje), field("Tu respuesta", r),
+      h("button", { class: "btn", onclick: async () => {
+        if (!r.value.trim()) return msg(s2, "Escribe la respuesta.", true);
+        const { error } = await sb.rpc("responder_consulta", { p_id: c.id, p_respuesta: r.value.trim() });
+        if (error) return msg(s2, "No se pudo enviar.", true); go("consejo");
+      } }, "Responder"), s2));
+  });
+}
+
+function nuevaBitacora() {
+  const g = h("input", { placeholder: "Ej.: Gestión 2026-I" }), a = h("input", { placeholder: "Nombre de la actividad" }), d = h("input", { type: "date" }),
+    f = h("input", { type: "file", accept: "image/*" }), t = [1, 2, 3].map(() => h("textarea", { rows: 2, maxlength: 400 })), st = h("p");
+  return h("section", {}, h("h2", {}, "Nueva entrada de bitácora"), field("Gestión", g), field("Actividad", a), field("Fecha", d), field("Foto", f),
+    field("Testimonio 1", t[0]), field("Testimonio 2 (opcional)", t[1]), field("Testimonio 3 (opcional)", t[2]),
+    h("button", { class: "btn", onclick: async () => {
+      if (!g.value.trim() || !a.value.trim()) return msg(st, "Escribe la gestión y la actividad.", true);
+      const tests = t.map((x) => x.value.trim()).filter(Boolean);
+      if (!tests.length) return msg(st, "Escribe al menos un testimonio.", true);
+      let path = null;
+      if (f.files[0]) {
+        path = `b${Date.now()}.jpg`;
+        const { error } = await sb.storage.from("bitacora").upload(path, await resize(f.files[0], 1280), { contentType: "image/jpeg" });
+        if (error) return msg(st, "No se pudo subir la foto.", true);
+      }
+      const { error } = await sb.from("bitacora").insert({ gestion: g.value.trim(), actividad: a.value.trim(), fecha: d.value || null, imagen: path, testimonios: tests });
+      msg(st, error ? "Error al guardar." : "Entrada agregada a la bitácora.", !!error);
+      if (!error) { a.value = f.value = ""; t.forEach((x) => (x.value = "")); }
+    } }, "Guardar en la bitácora"), st);
+}
+
+function pinGestion() {
+  const ges = h("input", { value: semestre() }), lista = h("div"), st = h("p");
+  const cargar = async () => {
+    const [a, b] = rangoSem(ges.value.trim() || semestre());
+    const { data } = await sb.from("destacados").select("perfil_id,mes,profiles(nombre,titulo)").gte("mes", a).lte("mes", b);
+    const cuenta = {};
+    (data ?? []).forEach((r) => { cuenta[r.perfil_id] = cuenta[r.perfil_id] || { n: 0, p: r.profiles }; cuenta[r.perfil_id].n++; });
+    const orden = Object.entries(cuenta).sort((x, y) => y[1].n - x[1].n);
+    lista.replaceChildren(...(orden.length ? orden.map(([id, v]) => h("div", { class: "ev" }, h("b", {}, String(v.n)), h("span", {}, v.p ? lbl(v.p) : "—"),
+      h("button", { class: "btn alt", onclick: async () => { const { error } = await sb.from("pines").insert({ perfil_id: id, gestion: ges.value.trim() }); msg(st, error ? "No se pudo otorgar (¿ya tiene ese pin?)." : "Pin otorgado.", !!error); } }, "Dar pin")))
+      : [h("p", { class: "mute" }, "No hay destacados en esa gestión.")]));
+  };
+  ges.onchange = cargar; cargar();
+  return h("section", {}, h("h2", {}, "Pin de la gestión"), h("p", { class: "mute" }, "Gestiones: 2026-I (enero a junio) y 2026-II (julio a diciembre). Al final de la gestión, da el pin al hermano con más apariciones."), field("Gestión", ges), lista, st);
+}
+
+function nuevoDestacado() {
+  const quien = h("select"), mes = h("input", { type: "month" }), mot = h("input", { placeholder: "Por qué se destaca (opcional)", maxlength: 160 }), st = h("p");
+  mes.value = mesActual().slice(0, 7);
+  sb.from("profiles").select("id,nombre,titulo").eq("aprobado", true).order("nombre").then(({ data }) => (data ?? []).forEach((p) => quien.append(h("option", { value: p.id }, lbl(p)))));
+  return h("section", {}, h("h2", {}, "Destacar a un hermano"), h("div", { class: "row" }, field("Hermano", quien), field("Mes", mes), field("Motivo", mot)),
+    h("button", { class: "btn", onclick: async () => {
+      if (!mes.value) return msg(st, "Elige el mes.", true);
+      const { error } = await sb.from("destacados").insert({ perfil_id: quien.value, mes: mes.value + "-01", motivo: mot.value.trim() || null });
+      msg(st, error ? "Error al guardar." : "Hermano destacado.", !!error); if (!error) mot.value = "";
+    } }, "Destacar"), st);
 }
 
 boot();

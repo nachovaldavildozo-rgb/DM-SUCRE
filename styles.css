@@ -34,3 +34,7 @@ section{padding:2rem 0;border-bottom:1px solid var(--line)}section h2{font-size:
 .row{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:.6rem;align-items:end}
 dialog{max-width:520px;width:calc(100% - 2rem);background:var(--card);color:var(--ink);border:1px solid var(--line);border-radius:8px}
 dialog img{width:100%;border-radius:6px;margin-bottom:.6rem}
+.bit{background:var(--card);border:1px solid var(--line);border-radius:6px;overflow:hidden;margin-top:1rem}
+.bit .ph{height:240px;background:var(--navy) center/cover}.bit .in{padding:1rem}.bit h3{font-size:1.6rem}
+.bit blockquote{margin:.6rem 0 0;padding-left:.8rem;border-left:3px solid var(--red);color:var(--mute)}
+.consulta{margin-top:.8rem}.consulta .resp{margin-top:.5rem;padding-left:.8rem;border-left:3px solid var(--red)}
