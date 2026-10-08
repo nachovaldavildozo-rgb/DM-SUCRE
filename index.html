@@ -11,8 +11,7 @@
 <body>
 <div id="auth" class="box" hidden>
   <h1>DeMolay Sucre</h1>
-  <p>Campamento de Sucre.
-    Acceso solo para miembros de la Orden DeMolay.</p>
+  <p>Campamento de Sucre. Acceso solo para miembros de la Orden DeMolay.</p>
   <form id="form">
     <div id="extra" hidden>
       <label for="nombre">Nombre completo</label><input id="nombre" autocomplete="name">
@@ -28,18 +27,17 @@
 
 <div id="pend" class="box" hidden>
   <h1>Cuenta pendiente</h1>
-  <p>Tu cuenta espera la aprobación de un administrador del capítulo. Vuelve a entrar cuando te avisen.</p>
+  <p>Tu cuenta espera la aprobación de un administrador. Vuelve a entrar cuando te avisen.</p>
   <button class="btn" id="out1">Salir</button>
 </div>
 
 <div id="app" hidden>
-  <header><div><b>DeMolay Sucre</b><br><small id="me"></small></div><button class="btn alt" id="out2">Salir</button></header>
-  <main>
-    <section><h2>Noticias</h2>
-      <div class="slide" id="slide"><h3 id="st"></h3><p id="ss"></p><button class="btn" id="sb" hidden>Leer completa</button></div>
-      <div class="dots" id="dots"></div></section>
-    <section><h2>Calendario departamental</h2><div id="evs"></div></section>
-  </main>
+  <header>
+    <button class="me" id="me" aria-label="Mi perfil"><span id="mav"></span><span id="mt"></span></button>
+    <nav id="nav" aria-label="Secciones"></nav>
+    <button class="btn alt" id="out2">Salir</button>
+  </header>
+  <main id="main"></main>
 </div>
 <dialog id="dlg"><div id="dimg"></div><h3 id="dt"></h3><p id="db"></p><button class="btn" id="dx">Cerrar</button></dialog>
 <script type="module" src="app.js"></script>
