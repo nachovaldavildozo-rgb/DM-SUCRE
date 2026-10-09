@@ -118,7 +118,7 @@ $("me").onclick = () => go("perfil", me.id);
 function go(view, arg) {
   clearInterval(timer);
   const nav = $("nav"); nav.replaceChildren();
-  const items = [["inicio", "Inicio"], ["hermanos", "Hermanos"], ["bitacora", "Bitácora"], ["consejo", "Consejo Consultivo"], ["louis", "Sir Louis"], ...(me.es_admin ? [["admin", "Administración" + (pendientes ? ` (${pendientes})` : "")]] : [])];
+  const items = [["inicio", "Inicio"], ["hermanos", "Hermanos"], ["bitacora", "Bitácora"], ["consejo", "Consejo Consultivo"], ["aprende", "Aprende"], ["louis", "Sir Louis"], ...(me.es_admin ? [["admin", "Administración" + (pendientes ? ` (${pendientes})` : "")]] : [])];
   items.forEach(([v, t]) => nav.append(h("button", { onclick: () => go(v), ...(v === view ? { "aria-current": "true" } : {}) }, t)));
   const main = $("main"); main.replaceChildren();
   window.scrollTo(0, 0);
@@ -126,6 +126,7 @@ function go(view, arg) {
   else if (view === "hermanos") viewHermanos(main);
   else if (view === "bitacora") viewBitacora(main);
   else if (view === "consejo") viewConsejo(main);
+  else if (view === "aprende") viewAprende(main);
   else if (view === "louis") viewLouis(main);
   else if (view === "perfil") viewPerfil(main, arg);
   else if (view === "admin") viewAdmin(main);
@@ -501,10 +502,10 @@ function viewLouis(main) {
   main.append(h("section", {}, h("h2", {}, "Sir Louis, vuestro custodio virtual"),
     h("div", { class: "louiscard" }, h("img", { src: LOUIS_FIG, alt: "Sir Louis, un ave de fuego con armadura de caballero", width: 220 }),
       h("div", {}, h("p", {}, "Pregúntale lo que quieras sobre la Orden. Te responde con paciencia y siempre termina con un resumen en palabras simples. Solo conoce lo que corresponde a tu grado."),
-        
-        h("button", { class: "btn", onclick: abrirLouis }, "Hablar con Sir Louis")))));
+        h("p", { class: "mute" }, "Por favor no le cuentes datos personales: tus preguntas se procesan en un servicio externo."),
+        h("button", { class: "btn", onclick: () => abrirLouis() }, "Hablar con Sir Louis")))));
 }
-function abrirLouis() {
+function abrirLouis(inicial) {
   if ($("louis")) return;
   const H = [];
   let ocupado = false;
@@ -517,14 +518,29 @@ function abrirLouis() {
     ocupado = true; enviar.disabled = true;
     burbuja("u", t);
     const w = burbuja("l", "Sir Louis consulta sus pergaminos…");
+    const ctl = new AbortController(), corte = setTimeout(() => ctl.abort(), 45000);
     try {
-      const { data, error } = await sb.functions.invoke("sir-louis", { body: { pregunta: t, historial: H.slice(-6) } });
-      if (error || !data?.texto) throw error ?? new Error("sin respuesta");
-      w.textContent = data.texto;
-      H.push({ rol: "usuario", texto: t }, { rol: "louis", texto: data.texto });
+      const { data: ses } = await sb.auth.getSession();
+      const r = await fetch(`${SUPABASE_URL}/functions/v1/sir-louis`, {
+        method: "POST", signal: ctl.signal,
+        headers: { "Content-Type": "application/json", apikey: SUPABASE_ANON_KEY, Authorization: `Bearer ${ses?.session?.access_token ?? SUPABASE_ANON_KEY}` },
+        body: JSON.stringify({ pregunta: t, historial: H.slice(-4) }),
+      });
+      if (!r.body) throw new Error("sin cuerpo");
+      const lector = r.body.getReader(), dec = new TextDecoder();
+      let total = "";
+      for (;;) {
+        const { done, value } = await lector.read();
+        if (done) break;
+        total += dec.decode(value, { stream: true });
+        w.textContent = total; lista.scrollTop = lista.scrollHeight;
+      }
+      if (!total.trim()) throw new Error("vacío");
+      H.push({ rol: "usuario", texto: t }, { rol: "louis", texto: total });
     } catch (e) {
       w.textContent = "Perdonad, noble amigo: Sir Louis no pudo responder ahora. Intentad de nuevo en un momento.";
     } finally {
+      clearTimeout(corte);
       ocupado = false; enviar.disabled = false; lista.scrollTop = lista.scrollHeight; q.focus();
     }
   }
@@ -538,22 +554,46 @@ function abrirLouis() {
   document.body.style.overflow = "hidden";
   burbuja("l", SALUDO);
   q.focus();
+  if (typeof inicial === "string") preguntar(inicial);
+}
+
+/* ---------- etapa 6: Aprende ---------- */
+async function viewAprende(main) {
+  const buscar = h("input", { type: "search", placeholder: "Buscar un tema (virtudes, protocolo, Priorato…)", "aria-label": "Buscar tema" });
+  const caja = h("div");
+  main.append(h("section", {}, h("h2", {}, "Aprende"),
+    h("p", { class: "mute" }, "Temas de estudio según tu grado. Si algo no queda claro, pregúntale a Sir Louis desde cada tema."), buscar, caja));
+  const { data } = await sb.from("conocimiento").select("id,titulo,contenido,categoria,min_grado").order("id");
+  const todos = data ?? [];
+  const norm = (x) => x.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+  const pintar = () => {
+    const q = norm(buscar.value.trim());
+    const f = todos.filter((r) => !q || norm(r.titulo + " " + r.contenido).includes(q));
+    const grupos = {};
+    f.forEach((r) => (grupos[r.categoria || "General"] ??= []).push(r));
+    const cats = Object.keys(grupos);
+    caja.replaceChildren(...(cats.length ? cats.map((c) => h("div", { class: "tema" }, h("h3", {}, c),
+      ...grupos[c].map((r) => h("details", {}, h("summary", {}, r.titulo),
+        h("p", {}, r.contenido.replace(/\s*Palabras clave:[\s\S]*$/, "")),
+        h("button", { class: "btn alt", onclick: () => abrirLouis("Explícame con sencillez: " + r.titulo) }, "Preguntar a Sir Louis"))))) : [h("p", { class: "mute" }, "No hay temas que coincidan.")]));
+  };
+  buscar.oninput = pintar; pintar();
 }
 
 function gestionConocimiento() {
-  const t = h("input"), c = h("textarea", { rows: 6 }), g = sel(GR.slice(0, 3).map((x, i) => [i, x])), st = h("p"), lista = h("div");
+  const t = h("input"), cat = h("input", { value: "General" }), c = h("textarea", { rows: 6 }), g = sel(GR.slice(0, 3).map((x, i) => [i, x])), st = h("p"), lista = h("div");
   const cargar = async () => {
-    const { data } = await sb.from("conocimiento").select("id,titulo,min_grado").order("id");
-    lista.replaceChildren(...(data?.length ? data.map((r) => h("div", { class: "ev" }, h("span", { style: "flex:1" }, `${r.titulo} · desde ${GR[r.min_grado] ?? r.min_grado}`),
+    const { data } = await sb.from("conocimiento").select("id,titulo,min_grado,categoria").order("categoria").order("id");
+    lista.replaceChildren(...(data?.length ? data.map((r) => h("div", { class: "ev" }, h("span", { style: "flex:1" }, `[${r.categoria}] ${r.titulo} · desde ${GR[r.min_grado] ?? r.min_grado}`),
       h("button", { class: "link", style: "margin:0", onclick: async () => { if (confirm("¿Quitar esto de Sir Louis?")) { await sb.from("conocimiento").delete().eq("id", r.id); cargar(); } } }, "Quitar"))) : [h("p", { class: "mute" }, "Sir Louis aún no sabe nada.")]));
   };
   cargar();
   return h("section", {}, h("h2", {}, "Lo que sabe Sir Louis"),
     h("p", { class: "mute" }, "Cada tema lo ven solo los hermanos del grado indicado en adelante. No pegues rituales ni textos reservados. Para corregir un tema, quítalo y vuelve a agregarlo."),
-    field("Tema", t), field("Contenido", c), field("¿Desde qué grado puede saberlo Sir Louis?", g),
+    field("Categoría (ej. Historia, Protocolo, Sucre)", cat), field("Tema", t), field("Contenido", c), field("¿Desde qué grado puede saberlo Sir Louis?", g),
     h("button", { class: "btn", onclick: async () => {
       if (!t.value.trim() || !c.value.trim()) return msg(st, "Escribe el tema y el contenido.", true);
-      const { error } = await sb.from("conocimiento").insert({ titulo: t.value.trim(), contenido: c.value.trim(), min_grado: +g.value });
+      const { error } = await sb.from("conocimiento").insert({ categoria: cat.value.trim() || "General", titulo: t.value.trim(), contenido: c.value.trim(), min_grado: +g.value });
       msg(st, error ? "Error al guardar." : "Sir Louis aprendió algo nuevo.", !!error);
       if (!error) { t.value = c.value = ""; cargar(); }
     } }, "Agregar"), st, lista);

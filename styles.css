@@ -51,3 +51,5 @@ dialog img{width:100%;border-radius:6px;margin-bottom:.6rem}
 .b{max-width:88%;padding:.7rem .9rem;border-radius:10px;margin:.5rem 0;white-space:pre-wrap;word-break:break-word}.b.l{background:var(--card);border:1px solid var(--line)}.b.u{background:var(--red);color:var(--on);margin-left:auto}
 #louischips{display:flex;gap:.5rem;overflow-x:auto;padding:.4rem 1.2rem;max-width:760px;width:100%;margin:0 auto}#louischips button{flex:none;background:var(--card);border:1px solid var(--red);color:var(--red);border-radius:99px;padding:.35rem .9rem;cursor:pointer}
 .louisf{display:flex;gap:.5rem;padding:.7rem 1.2rem;max-width:760px;width:100%;margin:0 auto}.louisf .btn{margin:0}
+
+.tema h3{margin:1.2rem 0 .4rem;color:var(--red)}.tema details{background:var(--card);border:1px solid var(--line);border-radius:6px;padding:.6rem .9rem;margin:.4rem 0}.tema summary{cursor:pointer;font-weight:600}.tema details p{margin:.6rem 0;line-height:1.6}.tema .btn{margin:.2rem 0 0}
